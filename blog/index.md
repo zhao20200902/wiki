@@ -4,5 +4,5 @@
 
 ### 11月
 
-* 2025.11.9 [Jouleverse CGC会议纪要（2025.11.9）](2025/202511/2025-11-09-CGC-meeting-minutes.md)
+* 2025.11.16 [Jouleverse CGC会议纪要（2025.11.9）](2025/202511/2025-11-16-CGC251109-meeting-minutes.md)
 
