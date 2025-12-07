@@ -10,100 +10,161 @@
     let web3 = null;
     let contract = null;
     let userAddress = null;
-    let CONTRACT_ABI = null;
+    
+    // 合约配置 - 直接嵌入必要的ABI定义
     const CONTRACT_ADDRESS = "0x8d214415b9c5F5E4Cf4CbCfb4a5DEd47fb516392";
+    const CONTRACT_ABI = [
+        // 签到相关函数
+        {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "tokenId",
+                    "type": "uint256"
+                }
+            ],
+            "name": "checkIn",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        // 查询相关函数
+        {
+            "constant": true,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "owner",
+                    "type": "address"
+                }
+            ],
+            "name": "balanceOf",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": true,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "tokenId",
+                    "type": "uint256"
+                }
+            ],
+            "name": "isLiveness",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "constant": true,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "owner",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "index",
+                    "type": "uint256"
+                }
+            ],
+            "name": "tokenOfOwnerByIndex",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        // 事件定义
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": true,
+                    "internalType": "uint256",
+                    "name": "tokenId",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "timestamp",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "blockNumber",
+                    "type": "uint256"
+                }
+            ],
+            "name": "CheckIn",
+            "type": "event"
+        }
+    ];
 
     // 定义gimmick
     var jvcoreCheckinGimmick = {
         name: 'jvcore-checkin',
-        load: function() {
-            // 在页面加载完成后执行
-            $.md.stage('bootstrap').subscribe(function(done) {
-                initJVcoreCheckin();
-                done();
-            });
+        version: '1.0.0',
+        once: function() {
+            // 注册链接触发方式，参考member gimmick
+            $.md.linkGimmick(this, 'jvcore-checkin', showCheckinComponent);
         }
     };
 
     // 注册gimmick
     $.md.registerGimmick(jvcoreCheckinGimmick);
 
-    // 加载JVCore ABI
-    function loadJVcoreABI() {
-        return new Promise((resolve, reject) => {
-            // 检查是否已经加载
-            if (window.jvcore_ABI) {
-                CONTRACT_ABI = window.jvcore_ABI;
-                resolve();
-                return;
+    /**
+     * 显示签到组件
+     * @param {jQuery} $links - 触发链接的jQuery对象
+     * @param {string|object} opt - 参数（暂未使用）
+     * @param {object} ref - 引用信息（暂未使用）
+     */
+    function showCheckinComponent($links, opt, ref) {
+        // 对每个触发链接进行处理
+        $links.each(function() {
+            var $link = $(this);
+            
+            // 避免重复初始化
+            if ($('#md-jvcore-checkin').length === 0) {
+                // 创建并显示签到组件
+                createAndDisplayCheckinComponent();
             }
-
-            // 检查是否正在加载
-            if (window.jvcoreABILoading) {
-                const checkInterval = setInterval(() => {
-                    if (window.jvcore_ABI) {
-                        clearInterval(checkInterval);
-                        CONTRACT_ABI = window.jvcore_ABI;
-                        resolve();
-                    }
-                }, 100);
-                return;
-            }
-
-            // 标记为正在加载
-            window.jvcoreABILoading = true;
-
-            // 创建script标签
-            const script = document.createElement('script');
-            script.src = 'https://jscan.jnsdao.com/scripts/misc/jvcore.nft.js';
             
-            script.onload = function() {
-                window.jvcoreABILoading = false;
-                if (window.jvcore_ABI) {
-                    CONTRACT_ABI = window.jvcore_ABI;
-                    resolve();
-                } else {
-                    reject(new Error('JVCore ABI加载失败'));
-                }
-            };
-            
-            script.onerror = function() {
-                window.jvcoreABILoading = false;
-                reject(new Error('无法加载JVCore脚本'));
-            };
-            
-            document.head.appendChild(script);
+            // 隐藏原始链接
+            $link.hide();
         });
-    }
-
-    // 初始化签到功能
-    async function initJVcoreCheckin() {
-        try {
-            // 等待ABI加载
-            await loadJVcoreABI();
-            
-            // 创建并显示签到组件
-            createAndDisplayCheckinComponent();
-            
-        } catch (error) {
-            console.error('JVCore签到初始化失败:', error);
-            showError('JVCore签到功能初始化失败: ' + error.message);
-        }
     }
 
     // 创建并显示签到组件
     function createAndDisplayCheckinComponent() {
-        // 检查是否已存在签到组件
-        if ($('#md-jvcore-checkin').length > 0) {
-            return;
-        }
-
         // 创建组件
         const $component = createCheckinComponent();
         
-        // 插入到页面中（可以根据需要调整位置）
-        // 这里插入到md-body的底部
-        $('#md-body').append($component);
+        // 插入到页面中
+        $('body').append($component);
         
         // 添加样式
         addCheckinStyles();
@@ -118,25 +179,28 @@
     // 创建签到组件HTML
     function createCheckinComponent() {
         return $(`
-            <div id="md-jvcore-checkin" class="md-jvcore-checkin">
-                <div class="card border-primary mb-4">
+            <div id="md-jvcore-checkin" class="md-jvcore-checkin" style="margin: 20px 0;">
+                <div class="card border-primary">
                     <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">JVCore 签到系统</h4>
+                        <h5 class="mb-0">JVCore 签到系统</h5>
                     </div>
                     <div class="card-body">
                         <!-- 钱包连接部分 -->
                         <div id="jvcore-wallet-section">
-                            <p class="card-text">连接钱包以查看和签到您的Core ID</p>
-                            <button id="jvcore-connect-btn" class="btn btn-success">
-                                <i class="fas fa-wallet"></i> 连接钱包
+                            <p class="card-text mb-2">连接钱包以查看和签到您的Core ID</p>
+                            <button id="jvcore-connect-btn" class="btn btn-success btn-sm">
+                                连接钱包
                             </button>
                             
-                            <div id="jvcore-wallet-info" style="display:none; margin-top:20px;">
-                                <div class="alert alert-info">
-                                    <h6 class="alert-heading">已连接钱包</h6>
-                                    <hr>
-                                    <p class="mb-2"><code id="jvcore-wallet-address"></code></p>
-                                    <button id="jvcore-disconnect-btn" class="btn btn-sm btn-outline-secondary">
+                            <div id="jvcore-wallet-info" style="display:none; margin-top:15px;">
+                                <div class="alert alert-success">
+                                    <h6 class="alert-heading">✅ 钱包已连接</h6>
+                                    <hr class="my-2">
+                                    <p class="mb-2 small">
+                                        <strong>地址：</strong>
+                                        <code id="jvcore-wallet-address" class="small"></code>
+                                    </p>
+                                    <button id="jvcore-disconnect-btn" class="btn btn-outline-secondary btn-sm">
                                         断开连接
                                     </button>
                                 </div>
@@ -146,12 +210,12 @@
                         <!-- Core ID列表部分 -->
                         <div id="jvcore-coreids-section" style="display:none;">
                             <hr>
-                            <h5 class="card-title">我的Core ID</h5>
+                            <h6>我的Core ID</h6>
                             <div id="jvcore-coreids-list"></div>
                         </div>
                         
                         <!-- 消息提示 -->
-                        <div id="jvcore-message" class="alert" style="display:none; margin-top:15px;"></div>
+                        <div id="jvcore-message" class="alert" style="display:none; margin-top:10px;"></div>
                     </div>
                 </div>
             </div>
@@ -167,73 +231,66 @@
                 /* Core ID卡片样式 */
                 .core-id-card {
                     border: 1px solid #dee2e6;
-                    border-radius: 8px;
-                    padding: 15px;
-                    margin-bottom: 15px;
-                    background: #f8f9fa;
-                    transition: all 0.3s ease;
-                }
-                
-                .core-id-card:hover {
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                    transform: translateY(-2px);
+                    border-radius: 6px;
+                    padding: 12px;
+                    margin-bottom: 10px;
+                    background: white;
                 }
                 
                 .core-id-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
                 }
                 
                 .core-id-title {
-                    font-weight: bold;
+                    font-weight: 600;
                     color: #495057;
-                    font-size: 1.1rem;
+                    font-size: 0.95rem;
                 }
                 
                 .core-id-status {
-                    font-size: 0.85rem;
-                    padding: 3px 8px;
-                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-weight: 500;
                 }
                 
                 .status-active {
-                    background-color: #d4edda;
-                    color: #155724;
+                    background-color: #d1e7dd;
+                    color: #0f5132;
                 }
                 
                 .status-expired {
                     background-color: #f8d7da;
-                    color: #721c24;
+                    color: #842029;
                 }
                 
                 .checkin-info {
-                    margin: 10px 0;
-                    padding: 10px;
-                    background: white;
-                    border-radius: 5px;
-                    border-left: 4px solid #007bff;
+                    margin: 8px 0;
+                    padding: 8px;
+                    background: #f8f9fa;
+                    border-radius: 4px;
                 }
                 
                 .last-checkin-time {
-                    font-size: 0.9rem;
+                    font-size: 0.8rem;
                     color: #6c757d;
-                    margin-bottom: 5px;
+                    margin-bottom: 4px;
                 }
                 
                 .month-status {
                     display: inline-block;
-                    padding: 4px 10px;
-                    border-radius: 4px;
-                    font-size: 0.85rem;
-                    font-weight: bold;
-                    margin-top: 5px;
+                    padding: 3px 8px;
+                    border-radius: 3px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
                 }
                 
                 .month-checked {
-                    background-color: #d4edda;
-                    color: #155724;
+                    background-color: #d1e7dd;
+                    color: #0f5132;
                 }
                 
                 .month-not-checked {
@@ -242,41 +299,37 @@
                 }
                 
                 .checkin-button {
-                    margin-top: 10px;
-                    min-width: 100px;
+                    margin-top: 8px;
+                    min-width: 90px;
+                    font-size: 0.85rem;
                 }
                 
                 .checkin-tip {
-                    font-size: 0.8rem;
+                    font-size: 0.75rem;
                     color: #6c757d;
-                    margin-top: 5px;
-                    font-style: italic;
+                    margin-top: 4px;
                 }
                 
                 /* 加载动画 */
                 .checkin-loading {
                     text-align: center;
-                    padding: 20px;
+                    padding: 15px;
                 }
                 
                 .checkin-loading .spinner-border {
-                    width: 3rem;
-                    height: 3rem;
+                    width: 2rem;
+                    height: 2rem;
                 }
                 
                 /* 响应式调整 */
                 @media (max-width: 768px) {
-                    .core-id-card {
-                        padding: 12px;
-                    }
-                    
                     .core-id-header {
                         flex-direction: column;
                         align-items: flex-start;
                     }
                     
                     .core-id-status {
-                        margin-top: 5px;
+                        margin-top: 4px;
                     }
                 }
             </style>
@@ -315,31 +368,30 @@
             $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 连接中...');
             
             if (typeof window.ethereum === 'undefined') {
-                showMessage('请安装MetaMask或其他以太坊钱包', 'danger');
-                $btn.prop('disabled', false).html('<i class="fas fa-wallet"></i> 连接钱包');
+                showMessage('请安装以太坊钱包（如MetaMask）', 'danger');
+                $btn.prop('disabled', false).text('连接钱包');
                 return;
             }
             
             // 请求连接钱包
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
             
             web3 = new Web3(window.ethereum);
-            const accounts = await web3.eth.getAccounts();
             userAddress = accounts[0];
             
             handleConnected();
-            showMessage('钱包连接成功', 'success');
+            showMessage('钱包连接成功！', 'success');
             
         } catch (error) {
             console.error('钱包连接失败:', error);
             let errorMsg = '连接失败';
             if (error.code === 4001) {
                 errorMsg = '用户拒绝了连接请求';
-            } else if (error.code === -32002) {
-                errorMsg = '请检查钱包应用并重试';
             }
             showMessage(errorMsg, 'danger');
-            $('#jvcore-connect-btn').prop('disabled', false).html('<i class="fas fa-wallet"></i> 连接钱包');
+            $('#jvcore-connect-btn').prop('disabled', false).text('连接钱包');
         }
     }
 
@@ -348,7 +400,7 @@
         userAddress = null;
         contract = null;
         
-        $('#jvcore-connect-btn').show().prop('disabled', false).html('<i class="fas fa-wallet"></i> 连接钱包');
+        $('#jvcore-connect-btn').show().prop('disabled', false).text('连接钱包');
         $('#jvcore-wallet-info').hide();
         $('#jvcore-coreids-section').hide();
         $('#jvcore-coreids-list').empty();
@@ -376,14 +428,11 @@
         try {
             $('#jvcore-coreids-list').html(`
                 <div class="checkin-loading">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                    </div>
-                    <p class="mt-2">正在加载Core ID...</p>
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <p class="mt-2 small">正在加载Core ID...</p>
                 </div>
             `);
             
-            // 获取Core ID数量
             const balance = await contract.methods.balanceOf(userAddress).call();
             
             if (balance === '0' || parseInt(balance) === 0) {
@@ -396,7 +445,7 @@
             }
             
             let coreIdsHtml = '';
-            const coreIdCount = Math.min(parseInt(balance), 20); // 最多显示20个
+            const coreIdCount = Math.min(parseInt(balance), 10);
             
             for (let i = 0; i < coreIdCount; i++) {
                 try {
@@ -463,7 +512,7 @@
                 </button>
                 
                 <div class="checkin-tip">
-                    ${monthStatus.isChecked ? '本月已签到，无需重复操作' : '点击按钮完成本月签到'}
+                    ${monthStatus.isChecked ? '✅ 本月已签到，无需重复操作' : '📝 点击完成本月签到'}
                 </div>
             </div>
         `;
@@ -492,7 +541,6 @@
                 day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit',
                 hour12: false
             });
             
@@ -516,13 +564,12 @@
             const currentYear = now.getFullYear();
             const currentMonth = now.getMonth();
             
-            // 解析日期
             const dateStr = lastCheckinTime.split(' ')[0];
             const dateParts = dateStr.split('/');
             
             if (dateParts.length === 3) {
                 const checkinYear = parseInt(dateParts[0]);
-                const checkinMonth = parseInt(dateParts[1]) - 1; // 月份0-11
+                const checkinMonth = parseInt(dateParts[1]) - 1;
                 
                 const isCurrentMonth = (checkinYear === currentYear && checkinMonth === currentMonth);
                 
@@ -555,11 +602,6 @@
         }, 3000);
     }
 
-    // 显示错误
-    function showError(text) {
-        showMessage(text, 'danger');
-    }
-
     // 全局签到函数
     window.jvcoreCheckIn = async function(tokenId) {
         try {
@@ -568,27 +610,24 @@
             
             button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 处理中...');
             
-            // 发送签到交易
             await contract.methods.checkIn(tokenId).send({
                 from: userAddress
             });
             
             showMessage('签到成功！', 'success');
             
-            // 重新加载列表
             await loadCoreIDList();
             
         } catch (error) {
             console.error('签到失败:', error);
             let errorMsg = '签到失败';
-            if (error.message.includes('rejected')) {
+            if (error.message.includes('rejected') || error.code === 4001) {
                 errorMsg = '用户拒绝了交易';
             } else if (error.message.includes('insufficient funds')) {
                 errorMsg = 'Gas费用不足';
             }
             showMessage(errorMsg, 'danger');
             
-            // 重新加载以恢复按钮状态
             await loadCoreIDList();
         }
     };

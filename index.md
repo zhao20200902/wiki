@@ -2,7 +2,7 @@
 
 Welcome to Jouleverse wiki!
 
-[gimmick:jvcore-checkin]
+[gimmick:jvcore-checkin]()
 
 维基（wiki）意为众人共创知识。比如世界知名的维基百科（wikipedia）即为全球贡献者共同创作的百科全书网站。
 
@@ -39,8 +39,3 @@ A: 签到是为了证明您仍然持有并关注您的Core ID。
 **Q: 忘记签到会怎样？**
 A: Core ID会变为"已过期"状态，但重新签到后可以恢复活跃状态。
 
----
-[gimmick:jvcore-checkin]
-
-<!-- gimmick: jvcore-checkin -->
-<!-- endgimmick -->
